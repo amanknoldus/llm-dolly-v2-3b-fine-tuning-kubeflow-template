@@ -1,0 +1,42 @@
+steps:
+
+  # Install dependencies
+  - name: 'python:3.8'
+    entrypoint: pip
+    args: ["install", "-r", "requirements_x86.txt", "--user"]
+
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'build', '--no-cache', '-t', '{region}-docker.pkg.dev/{project_id}/{artifact_registry}/{base_image}:{base_image_tag}', '.' ]
+    id: 'build'
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'push', '{region}-docker.pkg.dev/{project_id}/{artifact_registry}/{base_image}:{base_image_tag}' ]
+    id: 'push'
+    waitFor: ['build']
+
+  # Compile pipeline
+  - name: 'python:3.8'
+    entrypoint: 'python'
+    args: ['pipeline.py']
+    id: 'compile'
+    waitFor: ['push']
+
+  # Upload compiled pipeline to GCS.
+  - name: 'gcr.io/cloud-builders/gsutil'
+    args: ['cp', '{pipeline.json}', 'gs://{your_gcs_bucket_saved_pipeline_file}/']
+    id:  'upload'
+    waitFor: ['compile']
+
+  # Trigger and create the pipeline
+  - name: 'python:3.8'
+    entrypoint: 'python'
+    args: ['pipeline_run.py']
+    id: 'run_pipeline'
+#    waitFor: ['upload']
+
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+

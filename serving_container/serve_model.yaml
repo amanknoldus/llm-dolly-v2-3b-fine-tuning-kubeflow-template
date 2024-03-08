@@ -1,0 +1,22 @@
+steps:
+
+  # Install dependencies
+  - name: 'python:3.8'
+    entrypoint: pip
+    args: [ "install", "-r", "serving_container/requirements.txt", "--user" ]
+
+
+  # Build the serving container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'build', '.', '-t', '{region}-docker.pkg.dev/{project_id}/{artifact_registry}/{serve-image}:{serve_image_tag}', '-f', 'serving_container/Dockerfile' ]
+    id: 'build'
+
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [ 'push', '{region}-docker.pkg.dev/{project_id}/{artifact_registry}/{serve-image}:{serve_image_tag}' ]
+    id: 'push'
+    waitFor: ['build']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
